@@ -1,0 +1,240 @@
+<html>
+
+<head>
+      <title>My Favorite Restaurants in the City</title>
+      <script type='text/javascript' src='js/knockout-3.3.0.js'></script>
+      <script type='text/javascript' src='js/jquery-2.1.3.min.js'></script>
+      <link rel="stylesheet" type="text/css" href="css/style.css">
+
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
+      <link href='http://fonts.googleapis.com/css?family=Quicksand:300' rel='stylesheet' type='text/css'>
+      
+      <script type="text/javascript" src="http://maps.googleapis.com/maps/api/js?libraries=places"></script>
+      <script type="text/javascript" src="js/app.js"></script>
+
+      <script type="text/javascript">
+
+      $( document ).ready(  function(){
+
+            //loads neighborhood - Manhattan. I used http://www.latlong.net/ to determine latitude and longitude.
+            var map = new google.maps.Map(document.getElementById('map-canvas'), {center: new google.maps.LatLng(40.754931,-73.984019),zoom: 14 });
+                 
+            var favePlaces = [
+                  {   
+                        latLng : new google.maps.LatLng(40.764139 , -73.970336), 
+                        title : "Philippe Chow",
+                        keywords : [ 'chinese', 'dinner', 'asian'],
+                        venueId : "4a987360f964a520192c20e3"
+                  }, 
+                  {   
+                        latLng : new google.maps.LatLng(40.743224, -73.992557), 
+                        title : "Hill Country Barbecue Market", 
+                        keywords : [ 'american', 'lunch', 'dinner'],
+                        venueId : "46b16b46f964a52098491fe3"
+                  },
+                  {
+                        
+                        latLng : new google.maps.LatLng(40.767405, -73.981057),
+                        title : "Marea",
+                        keywords : [ 'greek', 'dinner'],
+                        venueId : "4a0babaaf964a52007751fe3"
+                  },
+                  {
+                        
+                        latLng : new google.maps.LatLng(40.765670, -73.987349),
+                        title : "Totto Ramen", 
+                        keywords : [ 'ramen', 'japanese', 'lunch'],
+                        venueId : "4c065581c36cef3bda2f210e"
+                  },
+                  {
+                        
+                        latLng : new google.maps.LatLng(40.764761, -73.982249),
+                        title : "Serafina Broadway", 
+                        keywords : [ 'italian', 'dinner'],
+                        venueId : "4a15acf0f964a520b3781fe3"
+                  }, 
+                  {
+                        latLng : new google.maps.LatLng(40.757239, -73.976659),
+                        title : "Smith & Wollensky", 
+                        keywords : [ 'steakhouse','steak','american','dinner'],
+                        venueId : "3fd66200f964a52041eb1ee3"
+
+                  }
+                  
+            ];
+
+            var clientId = "1XZ1NM5VFC4FNOIZHZFBU1NE1GB2IV5GUJ5F1YABCTJMQ03R";
+            var clientSecret = "OCCFJX4UNWJVACY0ZBZFTHHEVEL243FLB4U1XCYBUGKA4PAP";
+
+            function dropPin( drop_pin, mvm ){
+                  var self = this;
+                  self.mvm = mvm;
+                  self.title = drop_pin.title;
+                  self.venueId = drop_pin.venueId;
+
+                  self.keywords = drop_pin.keywords;
+
+                  self.bubbleText  = ko.observable( drop_pin.title);
+                  
+                  self.isSelected = ko.observable( false );
+
+                  // this line of code splits the titles
+                  var bubbleParts = self.bubbleText().split( " ");
+                  // then each word from the title is added the the array of keywords of each favorite place.
+                  for( var i = 0 ; i < bubbleParts.length; i++ ) self.keywords.push( bubbleParts[i].toLowerCase() );
+                  
+
+                  self.infowindow = new google.maps.InfoWindow( { content : self.bubbleText() });
+                  self.mapMarker = new google.maps.Marker({ position: drop_pin.latLng,map: map,title: drop_pin.title }); 
+
+
+                  // This function will run when one of the drop pins on the map is clicked
+                  google.maps.event.addListener( self.mapMarker , 'click',  function(){  
+                        self.selected();
+                  }); 
+
+                  // This function will run when an item on the list is clicked
+                  self.selected = function(){  
+                        // Hides the bubble and deselects the selected item when the user clicks on another
+                        mvm.closeAll();
+                        self.clicked(); 
+                        
+                        $('#four-square-view').css( 'display', 'block');
+
+                        var foursquareUrl = 'https://api.foursquare.com/v2/venues/' + self.venueId + '?v=20130815&' + 'client_id=' + clientId + '&client_secret=' + clientSecret;
+                        mvm.fourName( 'waiting');
+                        mvm.fourRating( 'waiting');
+                         $.ajax( { url : foursquareUrl }).done(                     
+                                    function ( response) { 
+                                          var v = response.response.venue;
+                                          mvm.fourName( v.name);
+                                          mvm.fourRating( v.rating);
+                              }).error( function () { 
+                                          mvm.fourName( 'error' ); 
+                                          mvm.fourRating( 'error');
+                                    }
+                              );      
+                  };
+
+
+                  self.matches = function( q ){
+                        // see if the search input exists in the array of keywords in any of the favorite places.
+                        return $.inArray( q.toLowerCase(), self.keywords ) != -1;
+                  };
+             
+
+                  self.initialState = function(){
+                        self.isSelected( false );
+                        self.mapMarker.setVisible( true );
+                        self.infowindow.close();
+                        $('#four-square-view').css( 'display', 'none'); 
+                  };
+
+                  self.clicked = function(){
+                        self.isSelected( true );
+                        self.mapMarker.setVisible( true );
+                        self.infowindow.open( map,self.mapMarker );
+                  };
+
+                  self.matchesSearch = function(){
+                        self.isSelected( true );
+                        self.mapMarker.setVisible( true );
+                        self.infowindow.open( map,self.mapMarker );
+                        $('#four-square-view').css( 'display', 'none'); 
+                  };
+
+                  self.doesNotMatch = function(){ 
+                        self.isSelected( false );
+                        self.mapMarker.setVisible( false );
+                        self.infowindow.close();
+                        $('#four-square-view').css( 'display', 'none'); 
+                  };
+
+            }
+
+            function MarkerViewModel(){
+                  var self = this;
+
+                  // adds all favorite places to an array
+                  var tmpArray = [];
+                  for( var i = 0; i < favePlaces.length; i++ ) tmpArray.push( new dropPin( favePlaces[i], self) );      
+                  
+                  self.fourName = ko.observable('inital');
+                  self.fourRating = ko.observable( 'initial');
+                  self.markers = ko.observableArray( tmpArray );
+                  self.searchQ = ko.observable( '' );
+
+
+                  self.closeAll = function( ){ for( var i = 0; i < self.markers().length; i++ ) self.markers()[i].initialState(); };
+                  self.searchMarkers = function(){
+                        var q = self.searchQ();
+
+
+                        var filterList = [];
+                        var noMatchList = [];
+                        for( var i = 0; i < self.markers().length; i++ ){
+                              var m = self.markers()[i];
+                              if( m.matches( q ))
+                                    filterList.push( m );
+                              else 
+                                    noMatchList.push( m);
+                        }
+
+                        for(  i = 0; i < filterList.length; i++ )filterList[i].matchesSearch();
+                        for(  i = 0; i < noMatchList.length; i++ )noMatchList[i].doesNotMatch();
+
+
+                  };
+
+                  self.selectItem = function( item ){
+                        item.selected();
+                  };
+
+
+                  self.clearSearch = function(){
+                        self.searchQ("");
+                        for(  i = 0; i < self.markers().length; i++ ) self.markers()[i].initialState();
+                  };
+            }
+            
+        ko.applyBindings( new MarkerViewModel() );
+
+      });
+
+
+
+    </script>
+</head>
+<body>
+ 
+
+      
+<div id="searchbox" class="col-lg-offset-1">
+You may search using restaurant name, cuisine, lunch, dinner, etc.
+      <div class="black">
+            <input data-bind="value: searchQ" />
+            <button class="btn btn-danger" data-bind="click: searchMarkers">Search</button>     
+      </div>
+</div>
+
+<div class="row"> 
+      <div id="map-canvas"></div>   
+</div>
+
+      <div id="listview">
+            <table>
+                  <tbody data-bind="foreach: markers()">
+                        <tr data-bind="click: $root.selectItem"><td data-bind="text: title, css : { selected : isSelected() }">                    
+                        </td></tr>
+                  </tbody>
+            </table>
+      </div>
+
+      <div id="four-square-view">
+            <strong data-bind="text: fourName"></strong> <br>FOURSQUARE Rating:<br> <strong id="rating" data-bind="text: fourRating"></strong><br>
+            
+      </div>
+
+
+</body>
+</html>
